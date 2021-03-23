@@ -407,7 +407,8 @@ impl G1Affine {
             .is_identity()
     }
 
-    /// Returns true if this point is on the g1 subgroup.
+    /// Returns true if this point is free of an $h$-torsion
+    /// component, using the Bowe's trick (eprint 2019/814)
     pub fn is_torsion_free_optimized(&self) -> Choice {
         const BETA:Fp = Fp::from_raw_unchecked([0xcd03_c9e4_8671_f071,0x5dab_2246_1fcd_a5d2,0x5870_42af_d385_1b95,0x8eb6_0ebe_01ba_cb9e,0x03f9_7d6e_83d0_50d2,0x18f0_2065_5463_8741]);
         // use the S. Bowe trick from eprint 2020/499
@@ -416,8 +417,10 @@ impl G1Affine {
         let mut sigma2 = sigma;
         sigma2.x = sigma2.x * BETA;
         sigma = sigma.double() - G1Projective::from(*self) - sigma2;
-        let l = Scalar::from_raw([0x0000_0000_5555_5555,0x396c_8c00_5555_e156,0x0000_0000_0000_0000,0x0000_0000_0000_0000]);
-        sigma = sigma * l - sigma2;
+	const L: [u8;16] = [
+	    85, 85, 85, 85, 0, 0, 0, 0, 86, 225, 85, 85, 0, 140, 108, 57,
+	    ];
+        sigma = sigma.multiply_by_small(&L) - sigma2;
         sigma.is_identity()
     }
 
@@ -743,6 +746,30 @@ impl G1Projective {
 
         acc
     }
+
+    fn multiply_by_small(&self, by: &[u8; 16]) -> G1Projective {
+        let mut acc = G1Projective::identity();
+
+        // This is a simple double-and-add implementation of point
+        // multiplication, moving from most significant to least
+        // significant bit of the scalar.
+	// The scalar is expected to be half the max size.
+        //
+        // We skip the leading bit because it's always unset for Fq
+        // elements.
+        for bit in by
+            .iter()
+            .rev()
+            .flat_map(|byte| (0..8).rev().map(move |i| Choice::from((byte >> i) & 1u8)))
+            .skip(1)
+        {
+            acc = acc.double();
+            acc = G1Projective::conditional_select(&acc, &(acc + self), bit);
+        }
+
+        acc
+    }
+    
 
     /// Multiply `self` by `crate::BLS_X`, using double and add.
     fn mul_by_x(&self) -> G1Projective {

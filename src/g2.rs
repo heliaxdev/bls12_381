@@ -473,12 +473,21 @@ impl G2Affine {
         const FQ_MODULUS_BYTES: [u8; 32] = [
             1, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
             216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115,
-        ];
+	    ];
 
         // Clear the r-torsion from the point and check if it is the identity
         G2Projective::from(*self)
             .multiply(&FQ_MODULUS_BYTES)
             .is_identity()
+    }
+
+    /// Returns true if this point is free of an $h$-torsion
+    /// component, using the Bowe's trick (eprint 2019/814)
+    pub fn is_torsion_free_optimized(&self) -> Choice {
+        // 2019/814 eprint trick
+	// [z] psi³(P) - psi²(P) + P = 0
+	let p = G2Projective::from(*self);
+	(p.psi2().psi().mul_by_x() - p.psi2() + p).is_identity()
     }
 
     /// Returns true if this point is on the curve. This should always return
@@ -1867,6 +1876,53 @@ fn test_is_torsion_free() {
 
     assert!(bool::from(G2Affine::identity().is_torsion_free()));
     assert!(bool::from(G2Affine::generator().is_torsion_free()));
+}
+
+#[test]
+fn test_is_torsion_free_optimized() {
+    let a = G2Affine {
+        x: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x89f5_50c8_13db_6431,
+                0xa50b_e8c4_56cd_8a1a,
+                0xa45b_3741_14ca_e851,
+                0xbb61_90f5_bf7f_ff63,
+                0x970c_a02c_3ba8_0bc7,
+                0x02b8_5d24_e840_fbac,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x6888_bc53_d707_16dc,
+                0x3dea_6b41_1768_2d70,
+                0xd8f5_f930_500c_a354,
+                0x6b5e_cb65_56f5_c155,
+                0xc96b_ef04_3477_8ab0,
+                0x0508_1505_5150_06ad,
+            ]),
+        },
+        y: Fp2 {
+            c0: Fp::from_raw_unchecked([
+                0x3cf1_ea0d_434b_0f40,
+                0x1a0d_c610_e603_e333,
+                0x7f89_9561_60c7_2fa0,
+                0x25ee_03de_cf64_31c5,
+                0xeee8_e206_ec0f_e137,
+                0x0975_92b2_26df_ef28,
+            ]),
+            c1: Fp::from_raw_unchecked([
+                0x71e8_bb5f_2924_7367,
+                0xa5fe_049e_2118_31ce,
+                0x0ce6_b354_502a_3896,
+                0x93b0_1200_0997_314e,
+                0x6759_f3b6_aa5b_42ac,
+                0x1569_44c4_dfe9_2bbb,
+            ]),
+        },
+        infinity: Choice::from(0u8),
+    };
+    assert!(!bool::from(a.is_torsion_free_optimized()));
+
+    assert!(bool::from(G2Affine::identity().is_torsion_free_optimized()));
+    assert!(bool::from(G2Affine::generator().is_torsion_free_optimized()));
 }
 
 #[cfg(feature = "endo")]
