@@ -46,6 +46,9 @@ fn criterion_benchmark(c: &mut Criterion) {
         c.bench_function(&format!("{} subgroup check", name), move |b| {
             b.iter(|| black_box(a).is_torsion_free())
         });
+        c.bench_function(&format!("{} subgroup check optimized", name), move |b| {
+            b.iter(|| black_box(a).is_torsion_free_optimized())
+        });
         c.bench_function(
             &format!("{} deserialize compressed point", name),
             move |b| b.iter(|| G1Affine::from_compressed(black_box(&compressed))),
@@ -114,6 +117,9 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
         c.bench_function(&format!("{} subgroup check", name), move |b| {
             b.iter(|| black_box(a).is_torsion_free())
+        });
+        c.bench_function(&format!("{} subgroup check optimized", name), move |b| {
+            b.iter(|| black_box(a).is_torsion_free_optimized())
         });
         c.bench_function(
             &format!("{} deserialize compressed point", name),
